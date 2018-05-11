@@ -5,75 +5,58 @@
 import socket
 import sys
 import time
-#from Base import Command
 import new_base
-#from SJF import CPUSchedulerSJF
-#from SRT import CPUSchedulerSRT
+
 
 seguimiento = False
 algorithm = sys.argv[1]
-seed = sys.argv[2]
 cpus_quantity = 1
 quantum = 1
 cc = 0
 
-if algorithm == 'SJF':
-    scheduler = new_base.CPUScheduler(cpus_quantity, quantum, cc)
-    seguimiento = True
-elif algorithm == 'SRT':
+if algorithm == 'SJF' or algorithm == 'SRT':
     scheduler = new_base.CPUScheduler(cpus_quantity, quantum, cc)
     seguimiento = True
 else:
     print >>sys.stderr, 'Algoritmo desconocido'
 
+
 if seguimiento:
 
-    # Create a TCP/IP socket
+    # configuracion del servidor
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    #Then bind() is used to associate the socket with the server address. In this case, the address is localhost, referring to the current server, and the port number is 10000.
-
-    # Bind the socket to the port
     server_address = ('localhost', 10000)
-    print >> sys.stderr, 'starting up on %s port %s' % server_address
+    # print >> sys.stderr, 'starting up on %s port %s' % server_address
     sock.bind(server_address)
-
-    #Calling listen() puts the socket into server mode, and accept() waits for an incoming connection.
-
-    # Listen for incoming connections
     sock.listen(1)
 
-
-    # Wait for a connection
-    print >>sys.stderr, 'waiting for a connection'
+    print >>sys.stderr, 'Esperando por un cliente'
     connection, client_address = sock.accept()
 
-    #accept() returns an open connection between the server and client, along with the address of the client. The connection is actually a different socket on another port (assigned by the kernel). Data is read from the connection with recv() and transmitted with sendall().
-
-
     try:
-        print >>sys.stderr, 'connection from', client_address
+        # se ha podido realizar la coneccion
+        print >>sys.stderr, 'Se establecio coneccion con', client_address
 
-        # Receive the data 
         while True:   
+            # recibe los datos
             data = connection.recv(256)
-            print >>sys.stderr, 'server received "%s"' % data
+
+            # si recibe informacion
             if data:
+                # llama a la funcion para ejecutar el comando
+                client_message = scheduler.execute_command(new_base.Command(data), algorithm)
 
-                scheduler.execute_command(new_base.Command(data))
-
-                connection.sendall('information sent')
+                connection.sendall(client_message)
             else:
-                # print >>sys.stderr, 'no data from', client_address
                 connection.close()
                 sys.exit()
                 
     finally:
-         # Clean up the connection
-        print >>sys.stderr, 'Acaba la ejecucion'
+        scheduler.imprimir_resumen()
+        scheduler.impresion_final()
+        print >>sys.stderr, 'Termina servidor'
         connection.close()
 
-#When communication with a client is finished, the connection needs to be cleaned up using close(). This example uses a try:finally block to ensure that close() is always called, even in the event of an error.
 
 
 def main(args):
