@@ -5,9 +5,10 @@
 import socket
 import sys
 import time
-from Base import Command
-from SJF import CPUSchedulerSJF
-from SRT import CPUSchedulerSRT
+#from Base import Command
+import new_base
+#from SJF import CPUSchedulerSJF
+#from SRT import CPUSchedulerSRT
 
 seguimiento = False
 algorithm = sys.argv[1]
@@ -17,10 +18,10 @@ quantum = 1
 cc = 0
 
 if algorithm == 'SJF':
-    scheduler = CPUSchedulerSJF(cpus_quantity, quantum, cc)
+    scheduler = new_base.CPUScheduler(cpus_quantity, quantum, cc)
     seguimiento = True
 elif algorithm == 'SRT':
-    scheduler = CPUSchedulerSRT(cpus_quantity, quantum, cc)
+    scheduler = new_base.CPUScheduler(cpus_quantity, quantum, cc)
     seguimiento = True
 else:
     print >>sys.stderr, 'Algoritmo desconocido'
@@ -59,7 +60,7 @@ if seguimiento:
             print >>sys.stderr, 'server received "%s"' % data
             if data:
 
-                scheduler.parseNewCommand(Command(data))
+                scheduler.execute_command(new_base.Command(data))
 
                 connection.sendall('information sent')
             else:
