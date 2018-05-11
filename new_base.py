@@ -1,4 +1,8 @@
 import string
+from prettytable import PrettyTable
+
+table = PrettyTable()
+table.field_names = ["Timestamp","Cola de listos", "CPU", "Procesos Bloqueados", "Pocesos terminados"]
 
 class Process:
 
@@ -32,7 +36,7 @@ class Command:
 			return
 
 		self.current_timestamp = float(str_command[i : j])
-		print "Current Timestamp: ", self.current_timestamp
+		# print "Current Timestamp: ", self.current_timestamp
 
 		str_command = str_command[j + 1 :]
 
@@ -47,14 +51,14 @@ class Command:
 			return
 
 		self.command = string.upper(str_command[i : j])
-		print "Command: ", self.command
+		# print "++++++++++++++++++++++Command: ", self.command
 
 		str_command = str_command[j + 1 :]
 
 		# extrae el resto de los parametros
 		if len(str_command) > 0:
 			self.params = [string.upper(a) for a in str_command.split(' ')]
-		print "Params: ", self.params
+		# print "Params: ", self.params
 
 
 
@@ -88,6 +92,16 @@ def sort_cpus_list_condition(cpu_1, cpu_2):
 
 
 
+def condition_to_order_cpus_for_srt(cpu_1, cpu_2):
+	if cpu_1[1] > cpu_2[1] or (cpu_1[1] == cpu_2[1] and cpu_1[0] < cpu_2[0]):
+		return -1
+	elif cpu_1[1] == cpu_2[1] and cpu_1[0] == cpu_2[0]:
+		return 0
+	else:
+		return 1
+
+
+
 class CPUScheduler:
 
 	def __init__(self, quantity_cpus, quantum, cc):
@@ -105,12 +119,12 @@ class CPUScheduler:
 		self.finished_and_killed_processes = set()
 
 
-	def execute_command(self, command):
+	def execute_command(self, command, algorithm):
 		if not command.error:
+			self.imprimir_resumen()
 
 			if self.last_timestamp != command.current_timestamp:
 				self.arriving_processes = []
-				self.imprimir_resumen()
 
 			self.updates_remaining_times(command.current_timestamp)
 
@@ -146,8 +160,12 @@ class CPUScheduler:
 			else:
 				print 'Accion no permitida'
 
-			self.locate_pending_processes_using_SJF()
+			if algorithm == 'SJF':
+				self.locate_pending_processes_using_SJF()
+			else:
+				self.locate_pending_processes_using_SRT()
 
+			# self.imprimir_resumen()
 
 	def execute_create_command(self, current_timestamp, cpu_time):
 		new_process = Process(self.next_process_id,
@@ -172,11 +190,13 @@ class CPUScheduler:
 
 		# si no existe
 		if not existing_process:
-			print 'El proceso', process_id, 'no existe'
+			# print 'El proceso', process_id, 'no existe'
+			pass
 
 		# si ya esta bloqueado
 		elif self.process_list[index].locked:
-			print 'El proceso', process_id, 'ya esta bloqueado'
+			# print 'El proceso', process_id, 'ya esta bloqueado'
+			pass
 
 		# si existe y no esta bloqueado
 		else:
@@ -206,11 +226,13 @@ class CPUScheduler:
 
 		# si no existe
 		if not existing_process:
-			print 'El proceso', process_id, 'no existe'
+			# print 'El proceso', process_id, 'no existe'
+			pass
 
 		# si no esta bloqueado
 		elif not self.process_list[index].locked:
-			print 'El proceso', process_id, 'no esta bloqueado'
+			# print 'El proceso', process_id, 'no esta bloqueado'
+			pass
 
 		# si existe y esta bloqueado
 		else:
@@ -229,11 +251,13 @@ class CPUScheduler:
 
 		# si no existe
 		if not existing_process:
-			print 'El proceso', process_id, 'no existe'
+			# print 'El proceso', process_id, 'no existe'
+			pass
 
 		# si existe pero esta completo
 		elif self.process_list[index].end_time != -1:
-			print 'El proceso', process_id, 'ya ha sido completado'
+			# print 'El proceso', process_id, 'ya ha sido completado'
+			pass
 
 		# si existe y no esta completo
 		else:
@@ -262,7 +286,7 @@ class CPUScheduler:
 		for index in range(len(self.process_list)):
 			self.execute_kill_process_command(self.process_list[index].id)
 
-		print 'Termina servidor'
+		# print 'Termina servidor'
 
 
 	def updates_remaining_times(self, current_timestamp):
@@ -332,54 +356,137 @@ class CPUScheduler:
 				current_cpus = sorted(current_cpus, cmp = sort_cpus_list_condition)
 
 
-
 	def locate_pending_processes_using_SJF(self):
+		# si no hay nada en lista de espera se regresa
 		if len(self.process_queue) == 0:
 			return
 
+		# itera sobre los cpus
 		cpu_index = 0
+		# mientras haya cpus y elementos en la lista de espera
 		while cpu_index < self.quantity_cpus and len(self.process_queue) > 0:
+			# si el cpu esta desocupado
 			if self.cpu_list[cpu_index]['current_process_id'] == -1:
+				# toma el primer proceso en la lista
 				next_process = self.process_queue.pop(0)
 
+				# le asigna un cpu al proceso
 				self.process_list[next_process.id].current_cpu = cpu_index
 
+				# le asigna el proceso al cpu
 				self.cpu_list[cpu_index]['current_process_id'] = next_process.id
 
 			cpu_index += 1
 
 
+	def locate_pending_processes_using_SRT(self):
+		# si no hay nada en la lista de espera se regresa
+		if len(self.process_queue) == 0:
+			return
+
+		#itera sobre los cpus
+		cpu_index = 0
+		while cpu_index < self.quantity_cpus and len(self.process_queue) > 0:
+			# si el cpu esta desocupado
+			if self.cpu_list[cpu_index]['current_process_id'] == -1:
+				# toma el primer proceso en la lista
+				next_process = self.process_queue.pop(0)
+
+				# le asigna un cpu al proceso
+				self.process_list[next_process.id].current_cpu = cpu_index
+
+				# le asigna el proceso al cpu
+				self.cpu_list[cpu_index]['current_process_id'] = next_process.id
+
+			cpu_index += 1
+
+		current_cpus = []
+		for i in range(self.quantity_cpus):
+			if self.cpu_list[i]['current_process_id'] != -1:
+				current_cpus.append([i, self.process_list[self.cpu_list[i]['current_process_id']].remaining_time])
+
+		current_cpus = sorted(current_cpus, cmp = condition_to_order_cpus_for_srt)
+
+		# Vamos agregando los procesos con mayor prioridad hasta que estos
+		# ya sean peor que los peores CPU
+		while (len(current_cpus) > 0 and len(self.process_queue) > 0):
+			# Vemos si el proceso en la fila con mayor prioridad no tiene un tiempo
+			# menor restante que el mas viable mejor de los CPU, nos salimos
+			for process in self.process_list:
+				if process.id == self.cpu_list[current_cpus[0][0]]['current_process_id']:
+					break
+
+			process_index = process.id
+
+			if self.process_queue[0].remaining_time >= self.process_list[process_index].remaining_time:
+				break
+
+			# Se quita al proceso anterior y se vuelve a agregar a la fila
+			self.process_queue.append(self.process_list[process_index])
+
+			self.process_list[process_index].current_cpu = -1
+
+			#Se obtiene el proceso con mayor prioridad y se borra de la fila 
+			next_process = self.process_queue.pop(0)
+
+			# Marcamos los datos debidos
+			# NOTA: Al modificarlo aqui, en teoria se modifica tambien en process_list
+			next_process.current_cpu = current_cpus[0][0]
+
+			self.cpu_list[current_cpus[0][0]]['current_process_id'] = next_process.id
+
+
+			# Se ordena de nuevo la fila de procesos
+			self.process_queue = sorted(self.process_queue, cmp = sort_process_queue_condition)
+
+			# Se quita este CPU de la lista ordenados
+			current_cpus.pop(0)
+
+		self.imprimir_resumen()
+
+
 	def imprimir_resumen(self):
-		print '-----------------------------------------------------------------'
-		print 'Timestamp:', self.last_timestamp
-		print ' '
-		print 'Todos los procesos creados:'
-		for proceso in self.process_list:
-			print 'Proceso:', int(proceso.id) + 1
-			print 'Cpu time:', proceso.cpu_time
-			print 'Remaining time:', proceso.remaining_time
-			print 'Arrival time:', proceso.arrival_time
-			print 'locked:', proceso.locked
-			print 'End time:', proceso.end_time
-			print 'Current CPU:', proceso.current_cpu
-			print ' '
+		# auxiliares
+		cl = []
+		block = []
+		done = []
+		# Timestamp: self.last_timestamp
+		tt = str(self.last_timestamp)
 
-		print ' '
-		print 'Fila de espera priorizada (cola de listos):'
+		#llegadas
+		# ll = str([int(proceso.id)+1 for proceso in self.arrival_time])
+
+		# Fila de espera priorizada (cola de listos):
 		for proceso in self.process_queue:
-			print 'Proceso:', int(proceso.id) + 1
+			cl.append(str(int(proceso.id) + 1))
 
-		print ' '
-		print 'Procesos bloqueados:'
+		# Procesos bloqueados:
 		for proceso in self.process_list:
 			if proceso.locked:
-				print 'Proceso:', int(proceso.id) + 1
+				block.append(str(int(proceso.id) + 1))
 
-		print ' '
-		print 'Procesos terminados:'
+		# Procesos terminados:
 		for id_proceso in self.finished_and_killed_processes:
-			print 'Proceso:', int(id_proceso) + 1
+			done.append(str(int(id_proceso) + 1))
 
-		print ' '
-		print 'Proceso en CPU 1:'
-		print 'Proceso:', int(self.cpu_list[0]['current_process_id']) + 1
+		# Proceso en CPU 1:
+		myCPU = str(int(self.cpu_list[0]['current_process_id']) + 1)
+
+		table.add_row([tt, cl, myCPU, block, done])
+
+		print table
+
+
+
+	def impresion_final(self):
+		taP = 0
+		wtP = 0
+		for proceso in self.process_list:
+			ta = proceso.end_time - proceso.arrival_time
+			wt = ta - proceso.cpu_time
+			print 'Proceso: ', int(proceso.id) + 1, ' | Cpu time =', proceso.cpu_time, ' | Turnaround: ', ta, " | Wating Time = ", wt
+			taP += ta
+			wtP += wt
+
+		print "Turnaround promedio = ", taP / len(self.process_list)
+		print "Tiempo de espera promedio = ", wtP / len(self.process_list)

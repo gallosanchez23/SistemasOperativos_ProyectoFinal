@@ -44,9 +44,9 @@ if seguimiento:
             # si recibe informacion
             if data:
                 # llama a la funcion para ejecutar el comando
-                client_message = scheduler.execute_command(new_base.Command(data), algorithm)
+                scheduler.execute_command(new_base.Command(data), algorithm)
 
-                connection.sendall(client_message)
+                connection.sendall('information sent')
             else:
                 connection.close()
                 sys.exit()
