@@ -2,7 +2,7 @@ import string
 from prettytable import PrettyTable
 
 table = PrettyTable()
-table.field_names = ["Timestamp","Cola de listos", "CPU", "Procesos Bloqueados", "Pocesos terminados"]
+table.field_names = ["Timestamp", "Llegada","Cola de listos", "CPU 1", "Procesos Bloqueados", "Pocesos terminados"]
 
 class Process:
 
@@ -442,7 +442,7 @@ class CPUScheduler:
 			# Se quita este CPU de la lista ordenados
 			current_cpus.pop(0)
 
-		self.imprimir_resumen()
+		# self.imprimir_resumen()
 
 
 	def imprimir_resumen(self):
@@ -453,8 +453,8 @@ class CPUScheduler:
 		# Timestamp: self.last_timestamp
 		tt = str(self.last_timestamp)
 
-		#llegadas
-		# ll = str([int(proceso.id)+1 for proceso in self.arrival_time])
+		# llegadas
+		ll = str([int(proceso.id) + 1 for proceso in self.arriving_processes])
 
 		# Fila de espera priorizada (cola de listos):
 		for proceso in self.process_queue:
@@ -472,7 +472,7 @@ class CPUScheduler:
 		# Proceso en CPU 1:
 		myCPU = str(int(self.cpu_list[0]['current_process_id']) + 1)
 
-		table.add_row([tt, cl, myCPU, block, done])
+		table.add_row([tt, ll, cl, myCPU, block, done])
 
 		print table
 
