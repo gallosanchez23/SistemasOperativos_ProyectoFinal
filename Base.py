@@ -1,4 +1,8 @@
 import string
+from prettytable import PrettyTable
+
+table = PrettyTable()
+table.field_names = ["Timestamp","Llegada","Cola de listos", "CPU", "Procesos Bloqueados", "Pocesos terminados"]
 
 class Proceso:
 
@@ -9,6 +13,7 @@ class Proceso:
         self.PRIORIDAD = prioridad
         self.CPU_TIME = CPUTime
 
+        self.turnaround = 0
         self.bloqueado = False
         self.terminado = -1 # Marca en cual timestamp termino
         self.ejecutandose = -1 # Marca en que cpu esta
@@ -29,7 +34,7 @@ class Command:
             return
         
         self.timestamp = float(strCommand[inicio:end])
-        print "TIMESTAMP=", self.timestamp
+        # print "TIMESTAMP=", self.timestamp
 
         strCommand = strCommand[end + 1:]
 
@@ -43,13 +48,13 @@ class Command:
             return
 
         self.command = string.upper(strCommand[inicio:end])
-        print "COMMAND=", self.command
+        # print "COMMAND=", self.command
 
         strCommand = strCommand[end + 1:]
 
         if len(strCommand) > 0:
             self.params = [string.upper(a) for a in strCommand.split(" ")]
-        print "PARAMS=", self.params
+        # print "PARAMS=", self.params
 
 
 
@@ -103,7 +108,7 @@ class CPUScheduler:
         self._recienLlegados = []
 
     def parseNewCommand(self, command):
-        print "VEAMOS=", command.command
+        # print "VEAMOS=", command.command
         muere = False
 
         self.attendChanges(command.timestamp)
@@ -120,7 +125,8 @@ class CPUScheduler:
                     index += 1
 
             if index == len(self._listaProcesos): #UPS no existe
-                print "ERROR: PID NO ENCONTRADO"
+                flag = False
+                # print "ERROR: PID NO ENCONTRADO"
 
             elif self._listaProcesos[index].terminado == -1: # Comprobamos que no estaba ya muerto
                 # Marcamos en el proceso que ya termino con su tiempo de muerte
@@ -142,12 +148,13 @@ class CPUScheduler:
                     self._recienLlegados.remove(self._listaProcesos[index])
 
             else:
-                print "Error: Este proceso ya estaba muerto"
+                flag = True
+                # print "Error: Este proceso ya estaba muerto"
 
             ######################### AQUI TOMAR PARA EL TURNAROUND #######################
 
         elif command.command == "CREATE":
-            print "OLAAA"
+            # print "OLAAA"
             nuevoProceso = Proceso(self._nextPID, float(command.params[1]),
                 command.timestamp)
             self._nextPID += 1
@@ -167,10 +174,12 @@ class CPUScheduler:
                     break
 
             if proc.PID != int(command.params[1]) - 1: # Ver si se encontro el proceso
-                print "ERROR: NO EXISTE ESE PROCESO"
+                # print "ERROR: NO EXISTE ESE PROCESO"
+                flag = True
 
             elif proc.bloqueado == False:
-                print "Error: Este proceso ya era libre"
+                # print "Error: Este proceso ya era libre"
+                flag = False
 
             else:
 
@@ -188,10 +197,12 @@ class CPUScheduler:
                     break
 
             if proc.PID != int(command.params[1]) - 1: # No existe el proceso indicado
-                print "ERROR: NO EXISTE EL PROCESO"
+                # print "ERROR: NO EXISTE EL PROCESO"
+                flag = True
 
             elif proc.bloqueado: 
-                print "Error: Ya esta Bloqueado"
+                # print "Error: Ya esta Bloqueado"
+                flag = False
 
             else:
 
@@ -212,13 +223,14 @@ class CPUScheduler:
                             break
 
         elif command.command == "END":
+            self.imprecionTiempos()
             muere = True
-        else:
-            print "ACHISACHIS"
+        # else:
+        #     print "ACHISACHIS"
             
         self.putNextProcessToRun(command.timestamp)
 
-        self.imprimirIteracion()
+        # self.imprimirIteracion()
 
         return muere
 
@@ -229,7 +241,7 @@ class CPUScheduler:
         cpusOrdenadas = []
         for indexCPU in range(self._CANT_CPU):
             if self._CPUs[indexCPU]["PID"] != -1: 
-                print "ES STR:", type(self._listaProcesos[self._CPUs[indexCPU]["PID"]].tiempoRestante) ###############################
+                # print "ES STR:", type(self._listaProcesos[self._CPUs[indexCPU]["PID"]].tiempoRestante) ###############################
                 cpusOrdenadas.append([indexCPU, 
                     self._lastTime + float(self._listaProcesos[self._CPUs[indexCPU]["PID"]].tiempoRestante)])
         cpusOrdenadas = sorted(cpusOrdenadas, cmp=conditionToOrderCPUs) # key=lambda tupla: tupla[1]
@@ -237,7 +249,7 @@ class CPUScheduler:
         seguimosSorteando = True
         while len(cpusOrdenadas) > 0:
             indexCPU = cpusOrdenadas[0][0]
-            print "Y AHORA:",self._CPUs[indexCPU]["PID"]
+            # print "Y AHORA:",self._CPUs[indexCPU]["PID"]
             proceso = self._listaProcesos[self._CPUs[indexCPU]["PID"]]
 
             if cpusOrdenadas[0][1] > timestamp:
@@ -254,6 +266,10 @@ class CPUScheduler:
 
                 # Marcamos en el proceso que ya termino con su tiempo de muerte
                 proceso.terminado = timestamp
+
+                #Sacamos el turnaround
+                proceso.turnaround = (timestamp - proceso.TIEMPO_LLEGADA)
+                print proceso.turnaround
 
                 if cpusOrdenadas[0][1] == timestamp:
                     # No se agrega otro y por esto no se siguen ordenando porque se asume
@@ -282,8 +298,8 @@ class CPUScheduler:
             if seguimosSorteando:
                 cpusOrdenadas = sorted(cpusOrdenadas, cmp=conditionToOrderCPUs)
 
-            ########################## PROBAR AQUI EL         self.imprimirIteracion() ######################
-
+            
+            self.imprimirIteracion()
             ##################################### REVISAR SI ACABO UN PROCESO Y SUMAR TURNAROUND
 
 
@@ -298,30 +314,42 @@ class CPUScheduler:
             self._recienLlegados = []
 
     def imprimirIteracion(self):
-        print "Timestamp: ", self._lastTime
-        print "Llegadas: ", [int(proc.PID)+1 for proc in self._recienLlegados]
-        print "Cola Listos: ", [int(proc.PID)+1 for proc in self._filaTurnos]
+        tt = str(self._lastTime)
+        # print "Timestamp: ", self._lastTime
+        ll = str([int(proc.PID)+1 for proc in self._recienLlegados])
+        # print "Llegadas: ", [int(proc.PID)+1 for proc in self._recienLlegados]
+        cl = str([int(proc.PID)+1 for proc in self._filaTurnos])
+        # print "Cola Listos: ", [int(proc.PID)+1 for proc in self._filaTurnos]
+        myCPU = []
+        block = []
+        done = []
         for cpu in self._CPUs:
-            if cpu["PID"] != -1:
-                print "CPU: ", int(cpu["PID"])+1, self._listaProcesos[cpu["PID"]].tiempoRestante
-            else:
-                print "CPU: ", cpu["PID"]
-        print "Bloqueados:"
+            # if cpu["PID"] != -1:
+            #     myCPU.append(str([int(cpu["PID"])+1, self._listaProcesos[cpu["PID"]].tiempoRestante]))
+            # else:
+            myCPU = str(cpu["PID"])
+        # print "Bloqueados:"
         for proc in self._listaProcesos:
             if proc.bloqueado:
-                print int(proc.PID)+1
-        print "Terminado:"
+                block.append(str(int(proc.PID)+1))
+        # print "Terminado:"
         for proc in self._listaProcesos:
-            if (proc.terminado != -1 and 
-                proc.PID not in 
-                self._procesosYaMuertosEImpresos):
-                print int(proc.PID)+1
-        print "Todos:"
+            if (proc.terminado != -1 and proc.PID not in self._procesosYaMuertosEImpresos):
+                done.append(str(int(proc.PID)+1))
+
+
+        table.add_row([tt,ll, cl, myCPU, block, done])
+
+        print table
+
+    def imprecionTiempos(self):
+        taP = 0
+        cpuP= 0
         for proc in self._listaProcesos:
-            print int(proc.PID)+1, proc.tiempoRestante
+            print "Proceso ", int(proc.PID)+1, ": Tiempo en el CPU = ", proc.CPU_TIME, " Turnaround = ", proc.turnaround, "Tiempo de espera = ", proc.turnaround - proc.CPU_TIME 
+            taP += proc.turnaround
+            cpuP += proc.CPU_TIME
+       
 
-        print ""
-        print ""
-
-        
-        
+        print "Turnaround promedio = ", taP / len(self._listaProcesos)
+        print "Tiempo de espera promedio = ", cpuP / len(self._listaProcesos)

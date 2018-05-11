@@ -56,7 +56,7 @@ if seguimiento:
         # Receive the data 
         while True:   
             data = connection.recv(256)
-            print >>sys.stderr, 'server received "%s"' % data
+            # print >>sys.stderr, 'server received "%s"' % data
             if data:
 
                 scheduler.parseNewCommand(Command(data))
